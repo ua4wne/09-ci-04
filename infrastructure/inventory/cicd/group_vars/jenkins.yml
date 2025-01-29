@@ -3,11 +3,6 @@ user_group: "{{ jenkins_user_group }}"
 user_name: "{{ jenkins_user_name }}"
 jenkins_user_name: jenkins
 jenkins_user_group: jenkins
-java_packages:
-  - java-11-openjdk-devel
-  - java-11-openjdk
 jenkins_agent_dir: /opt/jenkins_agent/
 docker_user: dervish
 version_codename: jammy
-java_url: "https://download.oracle.com/java/17/archive/jdk-17.0.5_linux-x64_bin.tar.gz"
-java_packet: "jdk-17.0.5_linux-x64_bin.tar.gz"
