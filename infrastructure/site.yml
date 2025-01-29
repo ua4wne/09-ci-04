@@ -1,145 +1,196 @@
 ---
 - name: Preapre all hosts
   hosts: all
+  # pre_tasks:
+  #   - name: Update apt repo and cache on all Debian/Ubuntu boxes
+  #     become: true
+  #     ansible.builtin.apt:
+  #       update_cache: true
+  #       force_apt_get: true
+  #       cache_valid_time: 3600
+  #   - name: Upgrade all packages on servers
+  #     become: true
+  #     ansible.builtin.apt:
+  #       upgrade: dist
+  #       force_apt_get: true
+  #   - name: Install unzip
+  #     become: true
+  #     ansible.builtin.apt:
+  #       name: unzip
+  #       state: present
   tasks:
     - name: Create group
       become: true
-      group:
+      ansible.builtin.group:
         name: "{{ user_group }}"
         state: present
     - name: Create user
       become: true
-      user:
+      ansible.builtin.user:
         name: "{{ user_name }}"
         generate_ssh_key: true
       register: ssh_key_info
     - name: Install JDK
       become: true
-      package:
-        name: "{{ java_packages }}"
+      ansible.builtin.apt:
+        name:
+          - openjdk-17-jre-headless
+          - openjdk-17-jdk-headless
         state: present
-
 - name: Get Jenkins master installed
   hosts: jenkins_masters
   tasks:
-    - name: Get repo Jenkins
-      become: true
-      get_url:
-        url: https://pkg.jenkins.io/redhat-stable/jenkins.repo
-        dest: /etc/yum.repos.d/jenkins.repo
-        validate_certs: false
     - name: Add Jenkins key
       become: true
-      rpm_key:
-        key: https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+      ansible.builtin.apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
         state: present
         validate_certs: false
-    - name: Install epel-release
+    - name: Get repo Jenkins
       become: true
-      yum:
-        name: epel-release
+      ansible.builtin.apt_repository:
+        repo: deb http://pkg.jenkins.io/debian-stable binary/
         state: present
     - name: Install Jenkins and requirements
       become: true
-      yum:
-        name:
+      ansible.builtin.apt:
+        pkg:
           - jenkins
           - git
         state: present
+        update_cache: true
       register: jenkins_installed
     - name: Ensure jenkins agents are present in known_hosts file
       become: true
       become_user: "{{ jenkins_user_name }}"
-      known_hosts:
+      ansible.builtin.known_hosts:
         name: "{{ hostvars[item].ansible_host }}"
         state: present
-        key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
+        key: "{{ lookup('pipe', 'ssh-keyscan -p {{ hostvars[item].ansible_port }} {{ hostvars[item].ansible_host }}') }}"
         hash_host: true
       with_items: "{{ groups.jenkins_agents }}"
     - name: Start Jenkins
       become: true
-      systemd:
+      ansible.builtin.systemd:
         name: jenkins
-        state: restarted
+        state: started
         enabled: true
       when: jenkins_installed is changed
 - name: Prepare jenkins agent
   hosts: jenkins_agents
   become: true
-  become_user: "{{ jenkins_user_name }}"
+  # become_user: "{{ jenkins_user_name }}"
   tasks:
     - name: Add master publickey into authorized_key
-      authorized_key:
+      ansible.posix.authorized_key:
         user: "{{ jenkins_user_name }}"
         state: present
         key: "{{ hostvars['jenkins-master-01']['ssh_key_info']['ssh_public_key'] }}"
     - name: Create agent_dir
-      become_user: root
-      file:
+      become: true
+      # become_user: "{{ jenkins_user_name }}"
+      ansible.builtin.file:
         path: "{{ jenkins_agent_dir }}"
         state: directory
         owner: "{{ jenkins_user_name }}"
         group: "{{ jenkins_user_group }}"
-    - name: Add docker repo
-      become_user: root
-      get_url:
-        url: https://download.docker.com/linux/centos/docker-ce.repo
-        dest: /etc/yum.repos.d/docker-ce.repo
-        validate_certs: false
-    - name: Install some required
-      become_user: root
-      yum:
-        name:
-          - git
-          - python3
+        mode: '0775'
+    - name: Install required system packages
+      become: true
+      ansible.builtin.apt:
+        name: "{{ packages }}"
+        state: present
+        # update_cache: true
+      vars:
+        packages:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+    # - name: Add Docker GPG apt Key
+    #   become: true
+    #   ansible.builtin.apt_key:
+    #     url: https://download.docker.com/linux/ubuntu/gpg
+    #     state: present
+    # - name: Add Docker Repository
+    #   become: true
+    #   ansible.builtin.apt_repository:
+    #     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ version_codename }} stable
+    #     state: present
+    - name: Update apt and install docker
+      become: true
+      ansible.builtin.apt:
+        pkg:
           - docker-ce
           - docker-ce-cli
           - containerd.io
+          # - docker-buildx-plugin
+          # - docker-compose-plugin
         state: present
-    - name: Update pip
-      become_user: root
-      pip:
-        executable: pip3
-        name: pip
-        extra_args: --upgrade
+        update_cache: true
+    - name: Check docker is active
+      become: true
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+    - name: Ensure group "docker" exists
+      become: true
+      ansible.builtin.group:
+        name: docker
+        state: present
+    - name: Adding user to docker group
+      become: true
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: true
+    - name: Get Python 3.X version
+      ansible.builtin.command: python3 --version
+      register: pyver
+      changed_when: false
+      failed_when: pyver.rc != 0
+    - name: Remove Python 3.X EXTERNALLY-MANAGED file
+      become: true
+      ansible.builtin.file:
+        state: absent
+        path: "/usr/lib/python{{ pyver.stdout.split()[1] | regex_search('([0-9]+\\.[0-9]+)') }}/EXTERNALLY-MANAGED"
+      when: pyver.stdout | regex_search('3\.[0-9]+')
+    - name: Install Python and pip
+      become: true
+      ansible.builtin.apt:
+        name:
+          - python3-pip
+        state: present
+    - name: Install Docker Module for Python
+      become: true
+      ansible.builtin.pip:
+        name: docker
     - name: Install Ansible
-      become_user: root
-      pip:
+      become: true
+      ansible.builtin.pip:
         executable: pip3
         name:
-          - selinux
-          - ansible<3.0
+          - ansible
         state: present
-    - name: Reinstall Selinux
-      become_user: root
-      pip:
-        executable: pip3
-        name:
-          - selinux
-        state: forcereinstall
     - name: Add local to PATH
-      lineinfile:
+      ansible.builtin.lineinfile:
         dest: ~/.bashrc
         regexp: export PATH=$PATH:/home/jenkins/.local/bin
         line: export PATH=$PATH:/home/jenkins/.local/bin
-    - name: Create docker group
-      become_user: root
-      group:
-        name: docker
-        state: present
     - name: Add jenkinsuser to dockergroup
-      become_user: root
-      user:
+      become: true
+      ansible.builtin.user:
         name: "{{ jenkins_user_name }}"
         groups: docker
     - name: Restart docker
-      become_user: root
-      systemd:
+      become: true
+      ansible.builtin.systemd:
         name: docker
         state: restarted
         enabled: true
     - name: Install agent.jar
-      get_url:
+      ansible.builtin.get_url:
         url: "http://{{ hostvars['jenkins-master-01']['ansible_host'] }}:8080/jnlpJars/agent.jar"
         dest: "{{ jenkins_agent_dir }}"
       register: install_agent
