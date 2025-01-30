@@ -44,3 +44,13 @@
 
 4. Создать Multibranch Pipeline на запуск Jenkinsfile из репозитория.
 
+![config1](./task4/config1.png)
+![config2](./task4/config2.png)
+![config3](./task4/config3.png)
+![console1](./task4/console1.png)
+![console2](./task4/console2.png)
+![result](./task4/result.png)
+
+5. Создать Scripted Pipeline, наполнить его скриптом из [pipeline](https://github.com/netology-code/mnt-homeworks/blob/MNT-video/09-ci-04-jenkins/pipeline).
+
+
