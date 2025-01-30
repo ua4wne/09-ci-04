@@ -31,3 +31,16 @@
 ![result](./task2/result.png)
 
 2. Сделать Declarative Pipeline Job, который будет запускать molecule test из любого вашего репозитория с ролью.
+
+![settings1](./task3/settings1.png)
+![settings2](./task3/settings2.png)
+![console1](./task3/console1.png)
+![console2](./task3/console2.png)
+![result](./task3/result.png)
+
+3. Перенести Declarative Pipeline в репозиторий в файл Jenkinsfile.
+
+>Ответ: [Jenkinsfile](./Jenkinsfile)
+
+4. Создать Multibranch Pipeline на запуск Jenkinsfile из репозитория.
+
