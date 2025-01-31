@@ -51,6 +51,18 @@
 ![console2](./task4/console2.png)
 ![result](./task4/result.png)
 
-5. Создать Scripted Pipeline, наполнить его скриптом из [pipeline](https://github.com/netology-code/mnt-homeworks/blob/MNT-video/09-ci-04-jenkins/pipeline).
+5. Создать Scripted Pipeline, наполнить его скриптом из pipeline.
+6. Внести необходимые изменения, чтобы Pipeline запускал ansible-playbook без флагов --check --diff, если не установлен параметр при запуске джобы (prod_run = True). По умолчанию параметр имеет значение False и запускает прогон с флагами --check --diff.
 
+![config1](./task5/conf1.png)
+![config2](./task5/conf2.png)
+![config3](./task5/conf3.png)
+![console1](./task5/console1.png)
+![console2](./task5/console2.png)
+![result](./task5/result.png)
 
+7. Проверить работоспособность, исправить ошибки, исправленный Pipeline вложить в репозиторий в файл ScriptedJenkinsfile.
+
+>Ответ: [ScriptedJenkinsfile](./ScriptedJenkinsfile)
+
+![itog](./task5/itog.png)
